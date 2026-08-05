@@ -118,6 +118,40 @@ function toStorageDate(value) {
   return `${yyyy}-${mm}-${dd} ${hh}:${min}:${sec}`;
 }
 
+/**
+ * Suma un mes natural a la caducidad.
+ *
+ * - Si la línea sigue activa, parte de su fecha de caducidad.
+ * - Si ya ha caducado, parte del momento actual.
+ * - Ajusta correctamente los finales de mes:
+ *   31 de enero -> 28/29 de febrero.
+ */
+function addOneCalendarMonth(expiration) {
+  const currentExpiration = parseDate(expiration);
+  const now = new Date();
+
+  const baseDate =
+    currentExpiration && currentExpiration.getTime() > now.getTime()
+      ? new Date(currentExpiration)
+      : new Date(now);
+
+  const originalDay = baseDate.getDate();
+
+  // Cambiar primero al día 1 evita saltos al pasar entre meses.
+  baseDate.setDate(1);
+  baseDate.setMonth(baseDate.getMonth() + 1);
+
+  const lastDayOfTargetMonth = new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth() + 1,
+    0
+  ).getDate();
+
+  baseDate.setDate(Math.min(originalDay, lastDayOfTargetMonth));
+
+  return toStorageDate(baseDate);
+}
+
 function getStatus(expiration) {
   const date = parseDate(expiration);
 
@@ -312,6 +346,112 @@ function logMessage(message) {
   messages.unshift(message);
   writeJson(dataFiles.messages, messages.slice(0, 3000));
   return true;
+}
+
+/**
+ * Completa una renovación, actualiza la línea y avisa al cliente.
+ * La renovación se guarda aunque el envío de WhatsApp falle.
+ */
+async function completeRenewalRequest(requestId, newExpiration) {
+  const requests = readJson(dataFiles.renewalRequests, []);
+  const renewalRequest = requests.find(item => item.id === requestId);
+
+  if (!renewalRequest) {
+    const error = new Error("Solicitud de renovación no encontrada.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (renewalRequest.status === "completed") {
+    return renewalRequest;
+  }
+
+  const lines = readJson(dataFiles.lines, []);
+  const line = lines.find(
+    item => normalize(item.username) === normalize(renewalRequest.username)
+  );
+
+  if (!line) {
+    const error = new Error("La línea ya no existe en el archivo de líneas.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const previousExpiration = line.expiration;
+
+  line.expiration = newExpiration;
+  writeJson(dataFiles.lines, lines);
+
+  renewalRequest.status = "completed";
+  renewalRequest.completedAt = new Date().toISOString();
+  renewalRequest.previousExpiration = previousExpiration;
+  renewalRequest.newExpiration = newExpiration;
+  renewalRequest.notificationStatus = "pending";
+  renewalRequest.notificationError = "";
+
+  const settings = readJson(dataFiles.settings, defaultSettings);
+
+  try {
+    const message = replaceTemplate(settings.renewedConfirmation, {
+      usuario: line.username,
+      caducidad: formatDate(newExpiration)
+    });
+
+    await sendText(renewalRequest.phone, message);
+    renewalRequest.notificationStatus = "sent";
+  } catch (error) {
+    renewalRequest.notificationStatus = "error";
+    renewalRequest.notificationError = String(error.message || error);
+
+    console.error(
+      `La línea ${line.username} se renovó, pero falló el aviso de WhatsApp:`,
+      error
+    );
+  }
+
+  writeJson(dataFiles.renewalRequests, requests);
+  return renewalRequest;
+}
+
+/**
+ * Reintenta únicamente la notificación de una renovación ya completada.
+ */
+async function retryRenewalNotification(requestId) {
+  const requests = readJson(dataFiles.renewalRequests, []);
+  const renewalRequest = requests.find(item => item.id === requestId);
+
+  if (!renewalRequest) {
+    const error = new Error("Solicitud de renovación no encontrada.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (renewalRequest.status !== "completed" || !renewalRequest.newExpiration) {
+    const error = new Error("La renovación todavía no está completada.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const settings = readJson(dataFiles.settings, defaultSettings);
+
+  try {
+    const message = replaceTemplate(settings.renewedConfirmation, {
+      usuario: renewalRequest.username,
+      caducidad: formatDate(renewalRequest.newExpiration)
+    });
+
+    await sendText(renewalRequest.phone, message);
+    renewalRequest.notificationStatus = "sent";
+    renewalRequest.notificationError = "";
+  } catch (error) {
+    renewalRequest.notificationStatus = "error";
+    renewalRequest.notificationError = String(error.message || error);
+    throw error;
+  } finally {
+    writeJson(dataFiles.renewalRequests, requests);
+  }
+
+  return renewalRequest;
 }
 
 app.set("trust proxy", 1);
@@ -520,79 +660,268 @@ app.post("/admin/import", requireAuth, upload.single("csv"), (req, res) => {
   }
 });
 
+
 app.get("/admin/renewals", requireAuth, (_req, res) => {
-  const requests = readJson(dataFiles.renewalRequests, []);
-
-  const rows = requests.map(item => `
-  <tr>
-    <td><code>${esc(item.username)}</code></td>
-    <td>${esc(item.phone)}</td>
-    <td>${esc(item.reason)}</td>
-    <td>${esc(new Date(item.requestedAt).toLocaleString("es-ES"))}</td>
-    <td><span class="badge ${item.status === "pending" ? "warning" : "success"}">${esc(item.status)}</span></td>
-    <td>
-      ${
-        item.status === "pending"
-          ? `<form class="renew-form" method="post" action="/admin/renewals/${item.id}/complete">
-               <input type="datetime-local" name="newExpiration" required>
-               <button class="small">Renovar y avisar</button>
-             </form>`
-          : `<small>Nueva fecha: ${esc(formatDate(item.newExpiration))}<br>Aviso: ${esc(item.notificationStatus)}</small>`
+  const requests = readJson(dataFiles.renewalRequests, [])
+    .sort((a, b) => {
+      if (a.status !== b.status) {
+        return a.status === "pending" ? -1 : 1;
       }
-    </td>
-  </tr>`).join("");
 
-  res.send(adminLayout("Avisos de renovación", `
-  <section class="card">
-    <p>Introduce la nueva fecha de caducidad y pulsa <strong>Renovar y avisar</strong>. El bot actualizará la línea y enviará la confirmación al cliente.</p>
-    <div class="table"><table>
-      <thead><tr><th>Línea</th><th>WhatsApp</th><th>Motivo</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>
-  </section>`));
-});
-
-app.post("/admin/renewals/:id/complete", requireAuth, async (req, res) => {
-  const requests = readJson(dataFiles.renewalRequests, []);
-  const request = requests.find(item => item.id === req.params.id);
-
-  if (!request) return res.status(404).send("Solicitud no encontrada.");
-
-  const lines = readJson(dataFiles.lines, []);
-  const line = lines.find(item => normalize(item.username) === normalize(request.username));
-
-  if (!line) return res.status(404).send("La línea ya no existe en el CSV.");
-
-  const previousExpiration = line.expiration;
-  const newExpiration = toStorageDate(req.body.newExpiration);
-
-  line.expiration = newExpiration;
-  writeJson(dataFiles.lines, lines);
-
-  request.status = "completed";
-  request.completedAt = new Date().toISOString();
-  request.previousExpiration = previousExpiration;
-  request.newExpiration = newExpiration;
-
-  const settings = readJson(dataFiles.settings, defaultSettings);
-
-  try {
-    const message = replaceTemplate(settings.renewedConfirmation, {
-      usuario: line.username,
-      caducidad: formatDate(newExpiration)
+      return new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime();
     });
 
-    await sendText(request.phone, message);
-    request.notificationStatus = "sent";
-    request.notificationError = "";
-  } catch (error) {
-    request.notificationStatus = "error";
-    request.notificationError = String(error.message || error);
-  }
+  const rows = requests.map(item => {
+    const line = findLine(item.username);
+    const currentStatus = line ? getStatus(line.expiration) : null;
 
-  writeJson(dataFiles.renewalRequests, requests);
-  res.redirect("/admin/renewals");
+    const lineInfo = line
+      ? `
+        <small class="line-meta">
+          Caducidad actual:
+          <strong>${esc(formatDate(line.expiration))}</strong>
+          <br>
+          Estado:
+          <span class="badge ${currentStatus.css}">
+            ${currentStatus.icon} ${esc(currentStatus.label)}
+          </span>
+        </small>
+      `
+      : `
+        <small class="danger-text">
+          La línea ya no existe en el archivo importado.
+        </small>
+      `;
+
+    const pendingActions =
+      item.status === "pending"
+        ? `
+          <div class="renewal-actions">
+            <form
+              method="post"
+              action="/admin/renewals/${item.id}/complete-one-month"
+              onsubmit="return confirm('¿Renovar esta línea un mes y enviar la confirmación al cliente?')"
+            >
+              <button type="submit" class="small full-button">
+                Renovar +1 mes y avisar
+              </button>
+            </form>
+
+            <details class="manual-renewal">
+              <summary>Elegir otra fecha</summary>
+
+              <form
+                class="renew-form"
+                method="post"
+                action="/admin/renewals/${item.id}/complete"
+              >
+                <label>
+                  Nueva caducidad
+                  <input
+                    type="datetime-local"
+                    name="newExpiration"
+                    required
+                  >
+                </label>
+
+                <button type="submit" class="small secondary full-button">
+                  Guardar fecha y avisar
+                </button>
+              </form>
+            </details>
+          </div>
+        `
+        : `
+          <div class="completed-renewal">
+            <small>
+              Antes:
+              <strong>${esc(formatDate(item.previousExpiration))}</strong>
+              <br>
+              Nueva caducidad:
+              <strong>${esc(formatDate(item.newExpiration))}</strong>
+              <br>
+              WhatsApp:
+              ${
+                item.notificationStatus === "sent"
+                  ? '<span class="notice-ok">✅ Enviado</span>'
+                  : item.notificationStatus === "error"
+                    ? '<span class="danger-text">❌ Error</span>'
+                    : "Pendiente"
+              }
+            </small>
+
+            ${
+              item.notificationStatus === "error"
+                ? `
+                  <form
+                    method="post"
+                    action="/admin/renewals/${item.id}/retry-notification"
+                  >
+                    <button type="submit" class="small secondary full-button">
+                      Reintentar aviso
+                    </button>
+                  </form>
+                  <small class="danger-text error-detail">
+                    ${esc(item.notificationError || "")}
+                  </small>
+                `
+                : ""
+            }
+          </div>
+        `;
+
+    return `
+      <tr>
+        <td>
+          <code>${esc(item.username)}</code>
+          <br>
+          ${lineInfo}
+        </td>
+        <td>${esc(item.phone)}</td>
+        <td>
+          ${esc(item.reason)}
+          <br>
+          <small>Origen: ${esc(item.source || "manual")}</small>
+        </td>
+        <td>${esc(new Date(item.requestedAt).toLocaleString("es-ES"))}</td>
+        <td>
+          <span class="badge ${item.status === "pending" ? "warning" : "success"}">
+            ${item.status === "pending" ? "Pendiente" : "Completada"}
+          </span>
+        </td>
+        <td>${pendingActions}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const emptyState =
+    requests.length === 0
+      ? `
+        <div class="empty-state">
+          <div class="big">✅</div>
+          <h3>No hay avisos de renovación</h3>
+          <p>Cuando un cliente solicite una renovación, aparecerá aquí.</p>
+        </div>
+      `
+      : `
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>Línea</th>
+                <th>WhatsApp</th>
+                <th>Motivo</th>
+                <th>Solicitud</th>
+                <th>Estado</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+
+  res.send(adminLayout("Avisos de renovación", `
+    <section class="card">
+      <div class="section-heading">
+        <div>
+          <h2>Renovaciones solicitadas</h2>
+          <p>
+            El botón automático amplía la línea un mes natural y envía
+            la confirmación al WhatsApp que realizó la solicitud.
+          </p>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <strong>Regla automática</strong>
+        <span>
+          Si la línea sigue activa, se suma un mes desde su caducidad.
+          Si ya está caducada, se suma un mes desde hoy.
+        </span>
+      </div>
+
+      ${emptyState}
+    </section>
+  `));
 });
+
+/**
+ * Renovación rápida: +1 mes natural y aviso por WhatsApp.
+ */
+app.post(
+  "/admin/renewals/:id/complete-one-month",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const requests = readJson(dataFiles.renewalRequests, []);
+      const renewalRequest = requests.find(item => item.id === req.params.id);
+
+      if (!renewalRequest) {
+        return res.status(404).send("Solicitud de renovación no encontrada.");
+      }
+
+      if (renewalRequest.status === "completed") {
+        return res.redirect("/admin/renewals");
+      }
+
+      const line = findLine(renewalRequest.username);
+
+      if (!line) {
+        return res.status(404).send(
+          "La línea ya no existe en el archivo de líneas."
+        );
+      }
+
+      const newExpiration = addOneCalendarMonth(line.expiration);
+
+      await completeRenewalRequest(req.params.id, newExpiration);
+      return res.redirect("/admin/renewals");
+    } catch (error) {
+      console.error("Error completando la renovación automática:", error);
+      return res
+        .status(error.statusCode || 500)
+        .send(esc(error.message || "No se pudo completar la renovación."));
+    }
+  }
+);
+
+/**
+ * Renovación con una fecha elegida manualmente.
+ */
+app.post(
+  "/admin/renewals/:id/complete",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const newExpiration = toStorageDate(req.body.newExpiration);
+      await completeRenewalRequest(req.params.id, newExpiration);
+      return res.redirect("/admin/renewals");
+    } catch (error) {
+      console.error("Error completando la renovación manual:", error);
+      return res
+        .status(error.statusCode || 500)
+        .send(esc(error.message || "No se pudo completar la renovación."));
+    }
+  }
+);
+
+/**
+ * Reenvía el aviso si la línea se renovó pero Meta rechazó el mensaje.
+ */
+app.post(
+  "/admin/renewals/:id/retry-notification",
+  requireAuth,
+  async (req, res) => {
+    try {
+      await retryRenewalNotification(req.params.id);
+      return res.redirect("/admin/renewals");
+    } catch (error) {
+      console.error("Error reenviando el aviso de renovación:", error);
+      return res.redirect("/admin/renewals");
+    }
+  }
+);
 
 app.get("/admin/contracts", requireAuth, (_req, res) => {
   const requests = readJson(dataFiles.contractRequests, []);

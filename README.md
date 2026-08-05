@@ -1,68 +1,101 @@
-# LeonBot: líneas, renovaciones y contrataciones
+# LeonBot PRO — líneas y renovación mensual
 
-Este proyecto sustituye al bot actual de WhatsApp y añade:
+Versión completa para reemplazar el bot actual en Render.
 
-- Consulta de una línea con `#usuario`.
-- Cálculo automático de estado, caducidad y días restantes.
-- Aviso automático en el panel cuando una línea está caducada o próxima a caducar.
-- Solicitud manual con `#renovar usuario`.
-- Renovación desde el panel introduciendo la nueva fecha.
-- Mensaje automático al cliente cuando tú completas la renovación.
-- Contrataciones nuevas separadas:
-  - `#contratar 1`
-  - `#contratar 3`
-  - `#contratar 6`
-  - `#contratar 12`
-- Importación de CSV.
-- Ajustes editables desde el panel.
-- Copia de seguridad JSON.
+## Qué hace
 
-## Comportamiento
+### Consulta de línea
 
-### Consulta
+El cliente escribe directamente:
 
 ```text
-#usuario123
+#SUUSUARIO
 ```
 
-El bot busca `usuario123` en `data/lines.json`.
+El bot devuelve:
 
-### Renovación
+- estado;
+- fecha de caducidad;
+- días restantes;
+- instrucción para solicitar la renovación.
+
+### Renovación de una línea existente
 
 ```text
-#renovar usuario123
+#renovar SUUSUARIO
 ```
 
-No pregunta por meses. Crea un aviso pendiente en el panel.
-
-En el panel introduces la nueva fecha y pulsas `Renovar y avisar`. El bot:
-
-1. actualiza la caducidad;
-2. marca el aviso como completado;
-3. envía la confirmación al WhatsApp del cliente.
-
-### Contratación nueva
+La solicitud aparece en:
 
 ```text
+Panel → Avisos de renovación
+```
+
+Dispones de dos acciones:
+
+- **Renovar +1 mes y avisar**
+- **Elegir otra fecha**
+
+La renovación automática aplica esta regla:
+
+- línea activa → caducidad actual + 1 mes natural;
+- línea caducada → fecha actual + 1 mes natural.
+
+Ejemplos:
+
+```text
+28/08/2026 → 28/09/2026
+31/01/2026 → 28/02/2026
+```
+
+Cuando pulsas el botón:
+
+1. se actualiza `data/lines.json`;
+2. la solicitud queda completada;
+3. se envía al cliente la nueva caducidad por WhatsApp;
+4. si Meta falla, aparece **Reintentar aviso**.
+
+### Contrataciones nuevas
+
+Las altas nuevas permanecen separadas:
+
+```text
+#contratar
+#contratar 1
+#contratar 3
 #contratar 6
+#contratar 12
 ```
-
-Crea una solicitud de alta de 6 meses.
 
 ## Instalación
 
-Reemplaza el proyecto actual del bot por este, conservando las variables de Render.
+1. Conserva las variables de entorno de Render.
+2. Reemplaza todos los archivos del repositorio por los de este proyecto.
+3. No subas `.env` ni `node_modules`.
+4. Render desplegará automáticamente.
 
-Build:
+Build Command:
 
 ```bash
 npm install
 ```
 
-Start:
+Start Command:
 
 ```bash
 npm start
+```
+
+Panel:
+
+```text
+https://leonbot-simple.onrender.com/login
+```
+
+Webhook existente:
+
+```text
+https://leonbot-simple.onrender.com/webhook
 ```
 
 ## Variables necesarias
@@ -79,15 +112,15 @@ WEBHOOK_VERIFY_TOKEN=LeonTVWebhook2026
 
 ADMIN_USER=powerghost
 ADMIN_PASSWORD=TU_CONTRASEÑA
-SESSION_SECRET=UNA_CLAVE_LARGA
+SESSION_SECRET=UNA_CLAVE_MUY_LARGA
 
 DATA_DIR=./data
 UPLOAD_DIR=./uploads
 MAX_CSV_MB=10
 ```
 
-## Render gratuito
+## Importante sobre Render gratuito
 
-Render gratuito usa almacenamiento efímero. Los avisos, cambios de fechas y solicitudes pueden perderse tras reinicios o despliegues.
-
-Usa `Exportar copia` con frecuencia. Para funcionamiento permanente, usa un disco persistente o un VPS.
+Los archivos JSON escritos durante la ejecución pueden perderse después de reinicios o
+nuevos despliegues porque el almacenamiento gratuito es efímero. Usa **Exportar copia**
+con frecuencia. Para un uso permanente, será necesario un disco persistente o un VPS.

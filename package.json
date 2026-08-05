@@ -1,7 +1,7 @@
 {
   "name": "leonbot-lineas-renovaciones",
-  "version": "1.0.0",
-  "description": "Bot WhatsApp León TV con consulta de líneas, renovaciones y contrataciones",
+  "version": "2.0.0",
+  "description": "Bot WhatsApp León TV con consulta de líneas, renovación mensual automática, avisos al panel y contrataciones",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {

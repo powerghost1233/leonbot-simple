@@ -1,18 +1,18 @@
-# Migración desde LeonBot actual
+# Sustitución del proyecto actual
 
-1. Descarga y descomprime este proyecto.
-2. Conserva el repositorio actual del bot y sus variables de Render.
-3. Reemplaza todos los archivos de GitHub por los de este proyecto.
-4. No subas `.env`.
-5. Haz un nuevo despliegue en Render.
-6. El webhook seguirá siendo:
+1. Descomprime el ZIP.
+2. En GitHub, reemplaza el contenido del repositorio actual del bot.
+3. No subas `.env`.
+4. Puedes borrar los archivos antiguos que no aparezcan en esta versión.
+5. Confirma el cambio con un commit.
+6. En Render usa `Manual Deploy → Clear build cache & deploy` si no se despliega solo.
 
-```text
-https://leonbot-simple.onrender.com/webhook
-```
+No debes cambiar el webhook ni volver a configurar Meta.
 
-7. El panel estará en:
+## Prueba recomendada
 
-```text
-https://leonbot-simple.onrender.com/login
-```
+1. Desde el WhatsApp autorizado escribe `#TUUSUARIO`.
+2. Escribe `#renovar TUUSUARIO`.
+3. Abre el panel → Avisos de renovación.
+4. Pulsa `Renovar +1 mes y avisar`.
+5. Comprueba que el cliente recibe la nueva fecha.
