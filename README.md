@@ -87,3 +87,8 @@ Para reducir el riesgo:
 3. Restaúrala desde el mismo panel si fuera necesario.
 
 Los archivos JSON incluidos en GitHub sí vuelven con cada despliegue. Un disco persistente de Render requiere un servicio de pago.
+
+
+## Mensaje de bienvenida
+
+En **Ajustes** puedes escribir el mensaje y elegir: primera vez, después de 24 horas sin actividad o desactivado.

@@ -113,6 +113,25 @@ function upsertClient(phone, profileName = "") {
     return clients;
   });
 }
+function shouldSendWelcome(settings, previousClient) {
+  const mode = String(settings.welcomeMode || "disabled");
+  if (mode === "disabled" || !String(settings.welcomeText || "").trim()) return false;
+  if (!previousClient || !previousClient.welcomeSentAt) return true;
+  if (mode === "first_time") return false;
+  if (mode === "after_24h") {
+    const lastActivity = new Date(previousClient.lastSeenAt || previousClient.welcomeSentAt).getTime();
+    return !Number.isFinite(lastActivity) || Date.now() - lastActivity >= 24 * 60 * 60 * 1000;
+  }
+  return false;
+}
+function markWelcomeSent(phone) {
+  store.update("clients", clients => {
+    const client = clients.find(c => c.phone === phone);
+    if (client) client.welcomeSentAt = store.now();
+    return clients;
+  });
+}
+
 function createRenewalRequest(phone) {
   const today = new Date().toISOString().slice(0,10);
   store.update("renewals", renewals => {
@@ -175,8 +194,8 @@ app.get("/admin/files",(req,res)=>{const files=fs.readdirSync(UPLOAD_DIR,{withFi
 app.post("/admin/files",upload.single("media"),auth.requireCsrf,(req,res)=>{if(!req.file)return res.status(400).send("No se recibió ningún archivo.");redirectWith(res,"/admin/files","Archivo subido.");});
 app.post("/admin/files/delete",auth.requireCsrf,(req,res)=>{const filename=path.basename(String(req.body.filename||""));const target=path.join(UPLOAD_DIR,filename);if(fs.existsSync(target))fs.unlinkSync(target);store.update("commands",commands=>{for(const x of commands){if(x.mediaUrl===localMediaUrl(filename)){x.mediaUrl="";x.mediaFilename="";x.mediaType="none";x.updatedAt=store.now();}}return commands;});redirectWith(res,"/admin/files","Archivo eliminado.");});
 
-app.get("/admin/settings",(req,res)=>{const x=store.read("settings");res.send(ui.page("Ajustes",`<div class="page-head"><div><span class="eyebrow">CONFIGURACIÓN</span><h1>Ajustes del bot</h1></div></div><form class="card form-grid" method="post" action="/admin/settings">${ui.csrf(req)}<label>Nombre comercial<input name="businessName" value="${ui.esc(x.businessName)}"></label><label>Título del menú<input name="menuTitle" value="${ui.esc(x.menuTitle)}"></label><label class="full">Pie del menú<textarea name="menuFooter" rows="3">${ui.esc(x.menuFooter)}</textarea></label><label class="full">Respuesta para comando desconocido<textarea name="unknownCommandText" rows="4">${ui.esc(x.unknownCommandText)}</textarea></label><label class="check"><input type="checkbox" name="replyToUnknownCommands" ${ui.checked(x.replyToUnknownCommands)}> Responder a comandos desconocidos</label><label class="check"><input type="checkbox" name="replyToNormalMessages" ${ui.checked(x.replyToNormalMessages)}> Responder también a mensajes normales</label><div class="full"><button>Guardar ajustes</button></div></form>`,{auth:req.auth,active:"settings",flash:flash(req)}));});
-app.post("/admin/settings",auth.requireCsrf,(req,res)=>{store.write("settings",{businessName:String(req.body.businessName||"León TV"),menuTitle:String(req.body.menuTitle||"📋 *MENÚ*").slice(0,300),menuFooter:String(req.body.menuFooter||"").slice(0,1000),unknownCommandText:String(req.body.unknownCommandText||"").slice(0,3000),replyToUnknownCommands:Boolean(req.body.replyToUnknownCommands),replyToNormalMessages:Boolean(req.body.replyToNormalMessages)});redirectWith(res,"/admin/settings","Ajustes guardados.");});
+app.get("/admin/settings",(req,res)=>{const x=store.read("settings");res.send(ui.page("Ajustes",`<div class="page-head"><div><span class="eyebrow">CONFIGURACIÓN</span><h1>Ajustes del bot</h1></div></div><form class="card form-grid" method="post" action="/admin/settings">${ui.csrf(req)}<label>Nombre comercial<input name="businessName" value="${ui.esc(x.businessName)}"></label><label>Título del menú<input name="menuTitle" value="${ui.esc(x.menuTitle)}"></label><label class="full">Pie del menú<textarea name="menuFooter" rows="3">${ui.esc(x.menuFooter)}</textarea></label><label class="full">Respuesta para comando desconocido<textarea name="unknownCommandText" rows="4">${ui.esc(x.unknownCommandText)}</textarea></label><label class="check"><input type="checkbox" name="replyToUnknownCommands" ${ui.checked(x.replyToUnknownCommands)}> Responder a comandos desconocidos</label><label class="check"><input type="checkbox" name="replyToNormalMessages" ${ui.checked(x.replyToNormalMessages)}> Responder también a mensajes normales</label><div class="full settings-divider"><span class="eyebrow">MENSAJE DE BIENVENIDA</span><h2>Respuesta automática inicial</h2><p class="muted">Elige cuándo quieres que el cliente reciba la bienvenida.</p></div><label>Modo de envío<select name="welcomeMode"><option value="first_time" ${ui.selected(x.welcomeMode,"first_time")}>Enviar solo la primera vez</option><option value="after_24h" ${ui.selected(x.welcomeMode,"after_24h")}>Enviar después de 24 horas sin actividad</option><option value="disabled" ${ui.selected(x.welcomeMode,"disabled")}>Desactivar</option></select></label><label class="full">Texto de bienvenida<textarea name="welcomeText" rows="12" placeholder="Escribe aquí el mensaje de bienvenida">${ui.esc(x.welcomeText||"")}</textarea></label><div class="full"><button>Guardar ajustes</button></div></form>`,{auth:req.auth,active:"settings",flash:flash(req)}));});
+app.post("/admin/settings",auth.requireCsrf,(req,res)=>{const allowedModes=new Set(["first_time","after_24h","disabled"]);const welcomeMode=allowedModes.has(req.body.welcomeMode)?req.body.welcomeMode:"disabled";store.write("settings",{businessName:String(req.body.businessName||"León TV"),menuTitle:String(req.body.menuTitle||"📋 *MENÚ*").slice(0,300),menuFooter:String(req.body.menuFooter||"").slice(0,1000),unknownCommandText:String(req.body.unknownCommandText||"").slice(0,3000),replyToUnknownCommands:Boolean(req.body.replyToUnknownCommands),replyToNormalMessages:Boolean(req.body.replyToNormalMessages),welcomeMode,welcomeText:String(req.body.welcomeText||"").slice(0,4096)});redirectWith(res,"/admin/settings","Ajustes y mensaje de bienvenida guardados.");});
 
 app.get("/admin/backup",(req,res)=>res.send(ui.page("Copias de seguridad",`<div class="page-head"><div><span class="eyebrow">SEGURIDAD</span><h1>Copias de seguridad</h1><p>Exporta los JSON antes de cada despliegue o reinicio.</p></div></div><section class="grid-2"><article class="card"><h2>Exportar</h2><p>Descarga comandos, clientes, renovaciones, mensajes y ajustes en un solo archivo.</p><a class="button" href="/admin/backup/download">Descargar copia JSON</a></article><article class="card"><h2>Restaurar</h2><form method="post" enctype="multipart/form-data" action="/admin/backup/import" class="form-stack">${ui.csrf(req)}<input type="file" name="backup" accept="application/json,.json" required><button>Importar copia</button></form></article></section><div class="warning"><strong>Nota:</strong> la copia JSON no incluye los archivos multimedia de la carpeta uploads.</div>`,{auth:req.auth,active:"backup",flash:flash(req)})));
 app.get("/admin/backup/download",(req,res)=>{const backup=store.exportAll();res.setHeader("Content-Type","application/json; charset=utf-8");res.setHeader("Content-Disposition",`attachment; filename="leonbot-backup-${new Date().toISOString().slice(0,10)}.json"`);res.send(JSON.stringify(backup,null,2));});
@@ -194,10 +213,16 @@ app.post("/webhook",webhookLimiter,async(req,res)=>{
   const key=incoming.split(/\s+/)[0].toLowerCase();
   const base={id:store.id("msg"),whatsappMessageId:message.id,phone,incomingText:incoming,createdAt:store.now()};
   try{
+    const previousClient=store.read("clients").find(c=>c.phone===phone);
     upsertClient(phone,profileName);
+    const settings=store.read("settings");
+    if(shouldSendWelcome(settings,previousClient)){
+      await wa.sendText(phone,settings.welcomeText);
+      markWelcomeSent(phone);
+    }
     if(key==="#menu"||key==="#ayuda"){await wa.sendText(phone,buildMenu());addMessage({...base,status:"answered",matchedCommand:"#menu"});return;}
     const command=activeCommands().find(x=>x.command===key);
-    if(!command){const settings=store.read("settings");const isCommand=key.startsWith("#");if((isCommand&&settings.replyToUnknownCommands)||(!isCommand&&settings.replyToNormalMessages))await wa.sendText(phone,isCommand?settings.unknownCommandText:buildMenu());addMessage({...base,status:"unmatched",matchedCommand:""});return;}
+    if(!command){const isCommand=key.startsWith("#");if((isCommand&&settings.replyToUnknownCommands)||(!isCommand&&settings.replyToNormalMessages))await wa.sendText(phone,isCommand?settings.unknownCommandText:buildMenu());addMessage({...base,status:"unmatched",matchedCommand:""});return;}
     if(command.text)await wa.sendText(phone,command.text);
     if(command.mediaType!=="none"&&command.mediaUrl)await wa.sendMedia(phone,command.mediaType,command.mediaUrl,command.mediaFilename||"");
     if(command.createsRenewalRequest)createRenewalRequest(phone);

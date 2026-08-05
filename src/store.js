@@ -17,7 +17,9 @@ const defaults = {
     menuFooter: "Escribe el comando que necesites.",
     unknownCommandText: "No reconozco ese comando. Escribe *#menu* para ver las opciones.",
     replyToUnknownCommands: true,
-    replyToNormalMessages: false
+    replyToNormalMessages: false,
+    welcomeMode: "after_24h",
+    welcomeText: "👋 ¡Hola! Bienvenido a *León TV*.\n\nGracias por ponerte en contacto con nosotros. 😊\n\n🤖 Este asistente puede ayudarte automáticamente. Escribe *#menu* para ver todas las opciones disponibles.\n\nSi necesitas atención personal, escribe tu consulta normalmente y te responderemos lo antes posible."
   }
 };
 
