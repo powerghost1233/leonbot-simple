@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: leonbot-simple
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.3
+      - key: APP_URL
+        sync: false
+      - key: META_GRAPH_VERSION
+        value: v25.0
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATA_DIR
+        value: ./data
+      - key: UPLOAD_DIR
+        value: ./uploads
+      - key: MAX_UPLOAD_MB
+        value: 20

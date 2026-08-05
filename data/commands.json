@@ -1,0 +1,62 @@
+[
+  {
+    "id": "cmd_msfbwnxj_3b70d3f3",
+    "command": "#pagar",
+    "title": "Información de pago",
+    "text": "💳 *INFORMACIÓN DE PAGO*\n\nBizum: PON_AQUÍ_TU_NÚMERO\nTransferencia: PON_AQUÍ_TU_IBAN\n\nCuando realices el pago, envía el justificante por este chat.",
+    "mediaType": "none",
+    "mediaUrl": "",
+    "mediaFilename": "",
+    "active": true,
+    "showInMenu": true,
+    "createsRenewalRequest": false,
+    "usageCount": 0,
+    "createdAt": "2026-08-05T00:08:27.943Z",
+    "updatedAt": "2026-08-05T00:08:27.943Z"
+  },
+  {
+    "id": "cmd_msfbwnxj_310f5642",
+    "command": "#precios",
+    "title": "Precios y planes",
+    "text": "📺 *PRECIOS*\n\nEdita esta respuesta desde el panel con tus tarifas reales.",
+    "mediaType": "none",
+    "mediaUrl": "",
+    "mediaFilename": "",
+    "active": true,
+    "showInMenu": true,
+    "createsRenewalRequest": false,
+    "usageCount": 0,
+    "createdAt": "2026-08-05T00:08:27.943Z",
+    "updatedAt": "2026-08-05T00:08:27.943Z"
+  },
+  {
+    "id": "cmd_msfbwnxj_e6a1e332",
+    "command": "#renovar",
+    "title": "Solicitar renovación",
+    "text": "🔄 *RENOVACIÓN*\n\nHe registrado tu solicitud. Indica el nombre del titular y el periodo que deseas renovar.",
+    "mediaType": "none",
+    "mediaUrl": "",
+    "mediaFilename": "",
+    "active": true,
+    "showInMenu": true,
+    "createsRenewalRequest": true,
+    "usageCount": 0,
+    "createdAt": "2026-08-05T00:08:27.943Z",
+    "updatedAt": "2026-08-05T00:08:27.943Z"
+  },
+  {
+    "id": "cmd_msfbwnxj_e097308b",
+    "command": "#soporte",
+    "title": "Soporte técnico",
+    "text": "🛠️ *SOPORTE*\n\nIndica:\n• Dispositivo\n• Aplicación utilizada\n• Mensaje de error\n• Captura o fotografía, si es posible",
+    "mediaType": "none",
+    "mediaUrl": "",
+    "mediaFilename": "",
+    "active": true,
+    "showInMenu": true,
+    "createsRenewalRequest": false,
+    "usageCount": 0,
+    "createdAt": "2026-08-05T00:08:27.943Z",
+    "updatedAt": "2026-08-05T00:08:27.943Z"
+  }
+]

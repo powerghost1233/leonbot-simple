@@ -1,14 +1,20 @@
 {
-  "name": "leonbot-profesional",
-  "version": "1.0.0",
+  "name": "leonbot-render-json",
+  "version": "3.0.0",
+  "description": "Bot profesional de WhatsApp Cloud API para León TV con panel web y almacenamiento JSON",
   "main": "index.js",
-  "scripts": {"start": "node index.js"},
-  "engines": {"node": ">=20"},
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "check": "node --check index.js && node --check src/store.js && node --check src/auth.js && node --check src/whatsapp.js"
+  },
+  "engines": {
+    "node": ">=22.22.0 <23.0.0"
+  },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "express-session": "^1.18.1",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^2.0.2"
   }
 }

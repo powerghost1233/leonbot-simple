@@ -1,0 +1,8 @@
+{
+  "businessName": "León TV",
+  "menuTitle": "📋 *MENÚ DE INFORMACIÓN*",
+  "menuFooter": "Escribe el comando que necesites.",
+  "unknownCommandText": "No reconozco ese comando. Escribe *#menu* para ver las opciones.",
+  "replyToUnknownCommands": true,
+  "replyToNormalMessages": false
+}
