@@ -1,94 +1,93 @@
-# LeonBot Profesional JSON — Render Ready
+# LeonBot: líneas, renovaciones y contrataciones
 
-Versión ligera, sin SQLite, sin Supabase y sin dependencias nativas. Está preparada para compilar directamente en Render.
+Este proyecto sustituye al bot actual de WhatsApp y añade:
 
-## Funciones
+- Consulta de una línea con `#usuario`.
+- Cálculo automático de estado, caducidad y días restantes.
+- Aviso automático en el panel cuando una línea está caducada o próxima a caducar.
+- Solicitud manual con `#renovar usuario`.
+- Renovación desde el panel introduciendo la nueva fecha.
+- Mensaje automático al cliente cuando tú completas la renovación.
+- Contrataciones nuevas separadas:
+  - `#contratar 1`
+  - `#contratar 3`
+  - `#contratar 6`
+  - `#contratar 12`
+- Importación de CSV.
+- Ajustes editables desde el panel.
+- Copia de seguridad JSON.
 
-- WhatsApp Cloud API oficial de Meta.
-- `#menu` generado automáticamente.
-- Comandos editables desde el panel.
-- Respuestas con texto, imágenes, PDF/documentos, vídeo y audio.
-- Registro automático de clientes.
-- Solicitudes y control de renovaciones.
-- Historial de los últimos 500 mensajes.
-- Gestor de archivos.
-- Ajustes del bot.
-- Exportación e importación de copias JSON.
-- Login protegido, cookie firmada, protección CSRF y limitación de intentos.
-- Verificación opcional de la firma de Meta.
+## Comportamiento
 
-## Sustituir el proyecto actual
+### Consulta
 
-1. Conserva la carpeta oculta `.git` y tu archivo `.env` local.
-2. Borra los archivos del proyecto antiguo, incluido `db.js` y cualquier referencia a `better-sqlite3`.
-3. Copia dentro el contenido de esta carpeta.
-4. En CMD, dentro del proyecto:
+```text
+#usuario123
+```
+
+El bot busca `usuario123` en `data/lines.json`.
+
+### Renovación
+
+```text
+#renovar usuario123
+```
+
+No pregunta por meses. Crea un aviso pendiente en el panel.
+
+En el panel introduces la nueva fecha y pulsas `Renovar y avisar`. El bot:
+
+1. actualiza la caducidad;
+2. marca el aviso como completado;
+3. envía la confirmación al WhatsApp del cliente.
+
+### Contratación nueva
+
+```text
+#contratar 6
+```
+
+Crea una solicitud de alta de 6 meses.
+
+## Instalación
+
+Reemplaza el proyecto actual del bot por este, conservando las variables de Render.
+
+Build:
 
 ```bash
 npm install
-npm run check
-git add .
-git commit -m "Instalar LeonBot profesional JSON"
-git push
 ```
 
-Render detectará el `push` y desplegará automáticamente.
+Start:
 
-## Variables de Render
+```bash
+npm start
+```
 
-En **Render → Environment** conserva o añade:
+## Variables necesarias
 
 ```env
+PORT=3000
 APP_URL=https://leonbot-simple.onrender.com
+NODE_ENV=production
+
 META_GRAPH_VERSION=v25.0
-WHATSAPP_TOKEN=TU_TOKEN_PERMANENTE
-WHATSAPP_PHONE_NUMBER_ID=TU_PHONE_NUMBER_ID
+WHATSAPP_TOKEN=TOKEN_PERMANENTE
+WHATSAPP_PHONE_NUMBER_ID=PHONE_NUMBER_ID
 WEBHOOK_VERIFY_TOKEN=LeonTVWebhook2026
-META_APP_SECRET=TU_APP_SECRET_OPCIONAL
-ADMIN_USER=admin
-ADMIN_PASSWORD=UNA_CONTRASEÑA_SEGURA
-SESSION_SECRET=UNA_CLAVE_MUY_LARGA_Y_ALEATORIA
+
+ADMIN_USER=powerghost
+ADMIN_PASSWORD=TU_CONTRASEÑA
+SESSION_SECRET=UNA_CLAVE_LARGA
+
 DATA_DIR=./data
 UPLOAD_DIR=./uploads
-MAX_UPLOAD_MB=20
+MAX_CSV_MB=10
 ```
 
-No necesitas añadir `PORT`: Render lo configura automáticamente.
+## Render gratuito
 
-## Configuración de Render
+Render gratuito usa almacenamiento efímero. Los avisos, cambios de fechas y solicitudes pueden perderse tras reinicios o despliegues.
 
-- Build Command: `npm install`
-- Start Command: `npm start`
-- Health Check Path: `/health`
-- Node: el proyecto fija `22.22.3` en `.node-version`.
-
-No necesitas cambiar el webhook de Meta. Sigue siendo:
-
-```text
-https://leonbot-simple.onrender.com/webhook
-```
-
-## Acceso
-
-```text
-https://leonbot-simple.onrender.com/login
-```
-
-Usa `ADMIN_USER` y `ADMIN_PASSWORD`.
-
-## Persistencia en Render gratuito
-
-Render gratuito usa un sistema de archivos efímero. El bot compila y funciona, pero los cambios realizados desde el panel y los archivos subidos pueden desaparecer después de un reinicio o despliegue.
-
-Para reducir el riesgo:
-
-1. Entra en **Copias**.
-2. Descarga una copia JSON después de cambios importantes.
-3. Restaúrala desde el mismo panel si fuera necesario.
-
-Los archivos JSON incluidos en GitHub sí vuelven con cada despliegue. Un disco persistente de Render requiere un servicio de pago.
-
-
-## Mensaje de bienvenida
-
-En **Ajustes** puedes escribir el mensaje y elegir: primera vez, después de 24 horas sin actividad o desactivado.
+Usa `Exportar copia` con frecuencia. Para funcionamiento permanente, usa un disco persistente o un VPS.

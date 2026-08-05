@@ -1,10 +1,13 @@
 {
   "businessName": "León TV",
-  "menuTitle": "📋 *MENÚ DE INFORMACIÓN*",
-  "menuFooter": "Escribe el comando que necesites.",
-  "unknownCommandText": "No reconozco ese comando. Escribe *#menu* para ver las opciones.",
-  "replyToUnknownCommands": true,
-  "replyToNormalMessages": false,
-  "welcomeMode": "after_24h",
-  "welcomeText": "👋 ¡Hola! Bienvenido a *León TV*.\n\nGracias por ponerte en contacto con nosotros. 😊\n\n🤖 Este asistente puede ayudarte automáticamente. Escribe *#menu* para ver todas las opciones disponibles.\n\nSi necesitas atención personal, escribe tu consulta normalmente y te responderemos lo antes posible."
+  "renewalAlertDays": 7,
+  "unknownMessage": "No reconozco ese comando.\n\nEscribe *#menu* para ver las opciones disponibles.",
+  "menuText": "👋 *LEÓN TV*\n\nConsulta tu línea escribiendo directamente:\n\n*#TUUSUARIO*\n\nEjemplo:\n#usuario123\n\n🔄 *Renovación de una línea actual*\n#renovar TUUSUARIO\n\n🆕 *Contratar una línea nueva*\n#contratar\n\n📱 *Instalación*\n#instalar\n\n🛠️ *Soporte*\n#soporte",
+  "installationText": "📱 *INSTALACIÓN LEÓN TV*\n\nSelecciona tu dispositivo:\n\n#android\n#firetv\n#lg\n#samsung\n\nEscribe el comando correspondiente para recibir la información.",
+  "supportText": "🛠️ *SOPORTE TÉCNICO*\n\nIndica:\n\n• El dispositivo que utilizas.\n• La aplicación instalada.\n• El mensaje de error.\n• Una captura o fotografía, si es posible.\n\nTe atenderemos lo antes posible.",
+  "contractText": "🆕 *CONTRATAR LEÓN TV*\n\nSelecciona la duración de tu nueva contratación:\n\n• 1 mes\n• 3 meses\n• 6 meses\n• 12 meses\n\nResponde con uno de estos comandos:\n\n#contratar 1\n#contratar 3\n#contratar 6\n#contratar 12",
+  "contractConfirmation": "✅ *SOLICITUD DE CONTRATACIÓN RECIBIDA*\n\nDuración solicitada: {periodo}\n\nHemos avisado al equipo de León TV. Nos pondremos en contacto contigo para completar la contratación.",
+  "renewalRequestConfirmation": "🔄 *SOLICITUD DE RENOVACIÓN RECIBIDA*\n\nLínea: {usuario}\nCaducidad actual: {caducidad}\n\nHemos enviado el aviso al panel de León TV. Cuando la línea sea renovada, recibirás la confirmación por este mismo chat.",
+  "renewedConfirmation": "✅ *TU LÍNEA HA SIDO RENOVADA*\n\nUsuario: {usuario}\nNueva fecha de caducidad: {caducidad}\n\nYa puedes seguir disfrutando de León TV. ¡Gracias por confiar en nosotros! 📺",
+  "autoAlertMessage": "⚠️ Tu línea está próxima a caducar. Hemos creado automáticamente un aviso de renovación para el equipo de León TV."
 }
