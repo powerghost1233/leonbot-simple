@@ -29,10 +29,8 @@ const dataFiles = {
 const defaultSettings = {
   businessName: "León TV",
   renewalAlertDays: 7,
-  unknownMessage: "No reconozco ese comando.\n\nEscribe *#menu* para ver las opciones disponibles.",
-  menuText: "👋 *LEÓN TV*\n\nConsulta tu línea escribiendo directamente:\n\n*#TUUSUARIO*\n\nEjemplo:\n#usuario123\n\n🔄 *Renovación de una línea actual*\n#renovar TUUSUARIO\n\n🆕 *Contratar una línea nueva*\n#contratar\n\n📱 *Instalación*\n#instalar\n\n🛠️ *Soporte*\n#soporte",
-  installationText: "📱 *INSTALACIÓN LEÓN TV*\n\nSelecciona tu dispositivo:\n\n#android\n#firetv\n#lg\n#samsung",
-  supportText: "🛠️ *SOPORTE TÉCNICO*\n\nIndica el dispositivo, la aplicación, el mensaje de error y una captura si es posible.",
+  unknownMessage: "No he podido interpretar el comando.\n\nUsa uno de estos formatos:\n\n📺 *#linea TUUSUARIO*\n🔄 *#linea renovar TUUSUARIO*\n🆕 *#linea contratar*\n\nEscribe *#linea* para volver a ver las instrucciones.",
+  menuText: "👋 *ASISTENTE DE LÍNEAS LEÓN TV*\n\nEste asistente solo funciona con comandos que empiecen por *#linea*.\n\n📺 *CONSULTAR UNA LÍNEA*\n#linea TUUSUARIO\n\nEjemplo:\n#linea usuario123\n\n🔄 *SOLICITAR RENOVACIÓN*\n#linea renovar TUUSUARIO\n\n🆕 *CONTRATAR UNA LÍNEA NUEVA*\n#linea contratar\n\nPara volver a ver estas instrucciones escribe *#linea*.",
   contractText: "🆕 *CONTRATAR LEÓN TV*\n\nSelecciona la duración:\n\n#contratar 1\n#contratar 3\n#contratar 6\n#contratar 12",
   contractConfirmation: "✅ *SOLICITUD DE CONTRATACIÓN RECIBIDA*\n\nDuración solicitada: {periodo}\n\nNos pondremos en contacto contigo.",
   renewalRequestConfirmation: "🔄 *SOLICITUD DE RENOVACIÓN RECIBIDA*\n\nLínea: {usuario}\nCaducidad actual: {caducidad}\n\nCuando la línea sea renovada, recibirás la confirmación por este chat.",
@@ -550,9 +548,10 @@ app.get("/admin", requireAuth, (_req, res) => {
 
   <section class="card">
     <h2>Flujo del sistema</h2>
-    <p><code>#usuario</code> consulta una línea.</p>
-    <p><code>#renovar usuario</code> solicita renovar una línea existente, sin elegir meses.</p>
-    <p><code>#contratar 1</code>, <code>#contratar 3</code>, <code>#contratar 6</code> o <code>#contratar 12</code> solicita una nueva contratación.</p>
+    <p><code>#linea TUUSUARIO</code> consulta el estado y la caducidad de una línea.</p>
+    <p><code>#linea renovar TUUSUARIO</code> crea un aviso de renovación.</p>
+    <p><code>#linea contratar</code> muestra las duraciones disponibles.</p>
+    <p>El bot ignora completamente cualquier mensaje que no empiece por <code>#linea</code>.</p>
   </section>`));
 });
 
@@ -1019,8 +1018,6 @@ app.post("/admin/settings", requireAuth, (req, res) => {
     ...current,
     renewalAlertDays: Math.max(0, Number(req.body.renewalAlertDays || 0)),
     menuText: String(req.body.menuText || ""),
-    installationText: String(req.body.installationText || ""),
-    supportText: String(req.body.supportText || ""),
     contractText: String(req.body.contractText || ""),
     contractConfirmation: String(req.body.contractConfirmation || ""),
     renewalRequestConfirmation: String(req.body.renewalRequestConfirmation || ""),
@@ -1088,27 +1085,30 @@ app.post("/webhook", async (req, res) => {
 
     const settings = readJson(dataFiles.settings, defaultSettings);
 
-    if (lower === "#menu" || lower === "#ayuda") {
+    /*
+     * MODO SILENCIOSO:
+     * cualquier mensaje que no empiece por #linea se ignora.
+     */
+    if (!lower.startsWith("#linea")) {
+      return;
+    }
+
+    const commandBody = incoming.slice(6).trim();
+    const commandLower = normalize(commandBody);
+
+    if (!commandBody) {
       await sendText(phone, settings.menuText);
       return;
     }
 
-    if (lower === "#instalar") {
-      await sendText(phone, settings.installationText);
-      return;
-    }
-
-    if (lower === "#soporte") {
-      await sendText(phone, settings.supportText);
-      return;
-    }
-
-    if (lower === "#contratar") {
+    if (commandLower === "contratar") {
       await sendText(phone, settings.contractText);
       return;
     }
 
-    const contractMatch = lower.match(/^#contratar\s+(1|3|6|12)(?:\s+mes(?:es)?)?$/);
+    const contractMatch = commandLower.match(
+      /^contratar\s+(1|3|6|12)(?:\s+mes(?:es)?)?$/
+    );
 
     if (contractMatch) {
       const months = Number(contractMatch[1]);
@@ -1123,14 +1123,17 @@ app.post("/webhook", async (req, res) => {
       return;
     }
 
-    const renewalMatch = incoming.match(/^#renovar\s+(.+)$/i);
+    const renewalMatch = commandBody.match(/^renovar\s+(.+)$/i);
 
     if (renewalMatch) {
       const username = renewalMatch[1].trim();
       const line = findLine(username);
 
       if (!line) {
-        await sendText(phone, `No hemos encontrado la línea *${username}*.\n\nComprueba el usuario e inténtalo de nuevo.`);
+        await sendText(
+          phone,
+          `No hemos encontrado la línea *${username}*.\n\nComprueba el usuario y vuelve a intentarlo con:\n*#linea renovar TUUSUARIO*`
+        );
         return;
       }
 
@@ -1151,12 +1154,13 @@ app.post("/webhook", async (req, res) => {
       return;
     }
 
-    if (lower.startsWith("#") && !lower.includes(" ")) {
-      const username = incoming.slice(1).trim();
+    if (!commandLower.includes(" ")) {
+      const username = commandBody;
       const line = findLine(username);
 
       if (line) {
         const status = getStatus(line.expiration);
+
         const daysText =
           status.days === null
             ? "No disponible"
@@ -1186,12 +1190,20 @@ app.post("/webhook", async (req, res) => {
 
           response += `\n\n${settings.autoAlertMessage}`;
         } else {
-          response += `\n\nPara solicitar la renovación de esta línea escribe:\n*#renovar ${line.username}*`;
+          response +=
+            `\n\nPara solicitar la renovación escribe:\n` +
+            `*#linea renovar ${line.username}*`;
         }
 
         await sendText(phone, response);
         return;
       }
+
+      await sendText(
+        phone,
+        `No hemos encontrado la línea *${username}*.\n\nComprueba el usuario y vuelve a intentarlo con:\n*#linea TUUSUARIO*`
+      );
+      return;
     }
 
     await sendText(phone, settings.unknownMessage);
